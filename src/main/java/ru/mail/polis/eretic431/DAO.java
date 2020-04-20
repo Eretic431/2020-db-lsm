@@ -5,26 +5,30 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.Objects;
 
 public class DAO implements ru.mail.polis.DAO {
     private final SortedMap<ByteBuffer, ByteBuffer> map = new TreeMap<>();
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
-        Iterator<Map.Entry<ByteBuffer, ByteBuffer>> iterator = map.tailMap(from).entrySet().iterator();
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
+        final Iterator<Map.Entry<ByteBuffer, ByteBuffer>> iterator = map.tailMap(from).entrySet().iterator();
         return Iterators.transform(iterator,
                 element -> Record.of(Objects.requireNonNull(element).getKey(), element.getValue()));
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         map.put(key, value);
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) {
+    public void remove(@NotNull final ByteBuffer key) {
         map.remove(key);
     }
 
