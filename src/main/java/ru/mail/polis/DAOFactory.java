@@ -19,7 +19,6 @@ package ru.mail.polis;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
-import java.io.IOException;
 
 /**
  * Custom {@link DAO} factory.
@@ -53,6 +52,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new ru.mail.polis.Eretic431.DAO();
+        return new ru.mail.polis.eretic431.DAO();
     }
 }

@@ -1,4 +1,4 @@
-package ru.mail.polis.Eretic431;
+package ru.mail.polis.eretic431;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
