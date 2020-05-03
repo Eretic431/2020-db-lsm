@@ -16,23 +16,23 @@ final class SSTable implements Table {
     final File file;
     private final int generation;
     private final List<Long> keys;
-    private final MappedByteBuffer mMap;
+    private final MappedByteBuffer memMap;
 
     public SSTable(File file) throws IOException {
         this.file = file;
         final String name = file.getName();
         generation = Integer.parseInt(name.substring(0, name.length() - 4));
 
-        mMap = FileChannel
-                .open(file.toPath(), StandardOpenOption.READ)
-                .map(FileChannel.MapMode.READ_ONLY, 0, file.length());
+        try (final FileChannel fc = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
+            memMap = fc.map(FileChannel.MapMode.READ_ONLY, 0, file.length());
+        }
 
-        final int rowsAmount = (int) mMap.getLong(mMap.limit() - 8);
+        final int rowsAmount = (int) memMap.getLong(memMap.limit() - Long.BYTES);
         keys = new ArrayList<>(rowsAmount);
 
-        mMap.position(mMap.limit() - 8 * (rowsAmount + 1));
+        memMap.position(memMap.limit() - Long.BYTES * (rowsAmount + 1));
         for (int i = 0; i < rowsAmount; i++) {
-            keys.add(mMap.getLong());
+            keys.add(memMap.getLong());
         }
     }
 
@@ -82,25 +82,25 @@ final class SSTable implements Table {
     }
 
     private ByteBuffer getKey(long position) {
-        mMap.clear();
-        mMap.position((int) position);
-        final long keyLength = mMap.getLong();
-        mMap.limit((int) (mMap.position() + keyLength));
+        memMap.clear();
+        memMap.position((int) position);
+        final long keyLength = memMap.getLong();
+        memMap.limit((int) (memMap.position() + keyLength));
 
-        return mMap.slice();
+        return memMap.slice();
     }
 
     private Row getRow(long position) {
         final ByteBuffer key = getKey(position);
-        mMap.clear();
-        mMap.position((int) position + key.limit() + Long.BYTES);
-        final long timestamp = mMap.getLong();
-        final long valueLength = mMap.getLong();
+        memMap.clear();
+        memMap.position((int) position + key.limit() + Long.BYTES);
+        final long timestamp = memMap.getLong();
+        final long valueLength = memMap.getLong();
         if (valueLength < 0) {
             return Row.of(key, new Value(timestamp, null));
         }
-        mMap.limit((int) (mMap.position() + valueLength));
+        memMap.limit((int) (memMap.position() + valueLength));
 
-        return Row.of(key, new Value(timestamp, mMap.slice()));
+        return Row.of(key, new Value(timestamp, memMap.slice()));
     }
 }

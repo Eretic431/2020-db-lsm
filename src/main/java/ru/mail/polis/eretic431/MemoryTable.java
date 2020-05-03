@@ -60,7 +60,7 @@ public class MemoryTable implements Table {
         map.put(key, new Value(null));
     }
 
-    public File flush(@NotNull final File storage, int generation) throws IOException {
+    public File flush(@NotNull final File storage, final int generation) throws IOException {
         if (map.isEmpty()) {
             return null;
         }
@@ -71,9 +71,11 @@ public class MemoryTable implements Table {
 
         final long fileSize = getSize() + map.size() * Long.BYTES * 4 + Long.BYTES;
         final List<Integer> positions = new ArrayList<>(map.size());
-        final MappedByteBuffer buf = FileChannel
-                .open(tmp.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE)
-                .map(FileChannel.MapMode.READ_WRITE, 0, fileSize);
+        final MappedByteBuffer buf;
+
+        try (final FileChannel fc = FileChannel.open(tmp.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            buf = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize);
+        }
 
         buf.clear();
         for (final Map.Entry<ByteBuffer, Value> entrySet : map.entrySet()) {

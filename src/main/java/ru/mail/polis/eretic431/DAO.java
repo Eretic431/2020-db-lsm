@@ -23,7 +23,7 @@ public class DAO implements ru.mail.polis.DAO {
     private int generation;
     private final long flushThreshold;
 
-    public DAO(File storage, long flushThreshold) throws IOException {
+    public DAO(File storage, final long flushThreshold) throws IOException {
         if (storage == null) {
             throw new IllegalArgumentException("Storage must not be null");
         }
