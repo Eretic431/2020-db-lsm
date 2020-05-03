@@ -63,10 +63,11 @@ public class MemoryTable implements Table {
 
     /**
      * Flushes memory table.
-     * @param storage
-     * @param generation
+     *
+     * @param storage    where file flushed to
+     * @param generation of memory table
      * @return Flushed file
-     * @throws IOException
+     * @throws IOException when {@link FileChannel} opening goes wrong
      */
     public File flush(@NotNull final File storage, final int generation) throws IOException {
         if (map.isEmpty()) {

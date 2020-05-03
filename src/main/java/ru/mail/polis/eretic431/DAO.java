@@ -8,6 +8,7 @@ import ru.mail.polis.Record;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -26,7 +27,14 @@ public class DAO implements ru.mail.polis.DAO {
     private int generation;
     private final long flushThreshold;
 
-    public DAO(final File storage, final long flushThreshold) throws IOException {
+    /**
+     * Creates persistent lsm key-value database instance.
+     *
+     * @param storage where files flushed to
+     * @param flushThreshold is a threshold after which memory table flushes into {@param storage}
+     * @throws IOException when {@link SSTable} creating goes wrong
+     */
+    public DAO(File storage, final long flushThreshold) throws IOException {
         if (storage == null) {
             throw new IllegalArgumentException("Storage must not be null");
         }
