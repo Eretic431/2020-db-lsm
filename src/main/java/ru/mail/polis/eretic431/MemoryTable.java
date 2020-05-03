@@ -61,6 +61,13 @@ public class MemoryTable implements Table {
         map.put(key, Value.tombstone());
     }
 
+    /**
+     * Flushes memory table.
+     * @param storage
+     * @param generation
+     * @return Flushed file
+     * @throws IOException
+     */
     public File flush(@NotNull final File storage, final int generation) throws IOException {
         if (map.isEmpty()) {
             return null;

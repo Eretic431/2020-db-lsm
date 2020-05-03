@@ -6,26 +6,26 @@ import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 
 final class Value implements Comparable<Value> {
-    final private long timestamp;
+    private final long timestamp;
     @Nullable
     private final ByteBuffer data;
 
-    private Value(@Nullable ByteBuffer data) {
+    private Value(@Nullable final ByteBuffer data) {
         this(System.currentTimeMillis(), data);
     }
 
-    private Value(long timestamp, @Nullable ByteBuffer data) {
+    private Value(final long timestamp, @Nullable final ByteBuffer data) {
         this.timestamp = timestamp;
         this.data = data;
     }
 
     @NotNull
-    public static Value of(@NotNull ByteBuffer data) {
+    public static Value of(@NotNull final ByteBuffer data) {
         return new Value(data);
     }
 
     @NotNull
-    public static Value of(final long timestamp, @NotNull ByteBuffer data) {
+    public static Value of(final long timestamp, @NotNull final ByteBuffer data) {
         return new Value(timestamp, data);
     }
 
@@ -53,7 +53,7 @@ final class Value implements Comparable<Value> {
     }
 
     @Override
-    public int compareTo(@NotNull Value value) {
+    public int compareTo(@NotNull final Value value) {
         return -Long.compare(timestamp, value.getTimestamp());
     }
 }

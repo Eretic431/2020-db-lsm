@@ -8,13 +8,16 @@ import ru.mail.polis.Record;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DAO implements ru.mail.polis.DAO {
     private final SortedMap<Integer, Table> ssTables;
@@ -23,22 +26,23 @@ public class DAO implements ru.mail.polis.DAO {
     private int generation;
     private final long flushThreshold;
 
-    public DAO(File storage, final long flushThreshold) throws IOException {
+    public DAO(final File storage, final long flushThreshold) throws IOException {
         if (storage == null) {
             throw new IllegalArgumentException("Storage must not be null");
         }
         this.storage = storage;
         this.flushThreshold = flushThreshold;
         this.generation = 0;
-
         this.memTable = new MemoryTable();
         this.ssTables = new TreeMap<>(Comparator.reverseOrder());
-        for (final File file : Objects.requireNonNull(this.storage.listFiles())) {
-            if (file.isFile() && file.getName().endsWith(".dat")) {
-                if (file.getName().matches("[A-z]+.dat")) {
-                    continue;
-                }
 
+        try (final Stream<Path> walker = Files.walk(storage.toPath(), 1)) {
+            final List<File> files = walker.filter(path -> {
+                final String fileName = path.getFileName().toString();
+                return fileName.endsWith(SSTable.DAT) && !fileName.matches("[A-z]+" + SSTable.DAT);
+            }).map(Path::toFile).collect(Collectors.toList());
+
+            for (final File file : files) {
                 final SSTable sst = new SSTable(file);
                 ssTables.put(sst.getGeneration(), sst);
 
@@ -47,6 +51,7 @@ public class DAO implements ru.mail.polis.DAO {
                 }
             }
         }
+
         if (!ssTables.isEmpty()) {
             generation++;
         }
