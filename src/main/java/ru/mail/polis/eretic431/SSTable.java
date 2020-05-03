@@ -26,7 +26,7 @@ final class SSTable implements Table {
         final String name = file.getName();
         generation = Integer.parseInt(name.substring(0, name.length() - DAT.length()));
 
-        try (final FileChannel fc = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
+        try (FileChannel fc = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
             memMap = fc.map(FileChannel.MapMode.READ_ONLY, 0, file.length());
         }
 
@@ -40,7 +40,7 @@ final class SSTable implements Table {
     }
 
     @Override
-    public Iterator<Row> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Row> iterator(@NotNull final ByteBuffer from) {
         return new Iterator<>() {
             private int position = binarySearch(from);
 
@@ -69,7 +69,7 @@ final class SSTable implements Table {
 
         while (low <= high) {
             final int pivot = (low + high) >>> 1;
-            ByteBuffer pivotVal = getKey(keys.get(pivot));
+            final ByteBuffer pivotVal = getKey(keys.get(pivot));
             if (pivotVal.compareTo(from) < 0) {
                 low = pivot + 1;
             } else {
@@ -84,7 +84,7 @@ final class SSTable implements Table {
         return low;
     }
 
-    private ByteBuffer getKey(long position) {
+    private ByteBuffer getKey(final long position) {
         memMap.clear();
         memMap.position((int) position);
         final long keyLength = memMap.getLong();
@@ -93,7 +93,7 @@ final class SSTable implements Table {
         return memMap.slice();
     }
 
-    private Row getRow(long position) {
+    private Row getRow(final long position) {
         final ByteBuffer key = getKey(position);
         memMap.clear();
         memMap.position((int) position + key.remaining() + Long.BYTES);

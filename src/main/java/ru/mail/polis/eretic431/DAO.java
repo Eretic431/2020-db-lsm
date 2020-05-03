@@ -33,7 +33,7 @@ public class DAO implements ru.mail.polis.DAO {
      * @param flushThreshold is a threshold after which memory table flushes into {@param storage}
      * @throws IOException when {@link SSTable} creating goes wrong
      */
-    public DAO(File storage, final long flushThreshold) throws IOException {
+    public DAO(final File storage, final long flushThreshold) throws IOException {
         if (storage == null) {
             throw new IllegalArgumentException("Storage must not be null");
         }

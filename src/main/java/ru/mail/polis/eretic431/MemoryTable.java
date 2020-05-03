@@ -20,10 +20,10 @@ import java.util.TreeMap;
 
 public class MemoryTable implements Table {
     private final SortedMap<ByteBuffer, Value> map = new TreeMap<>();
-    private long size = 0;
+    private long size;
 
     @Override
-    public Iterator<Row> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Row> iterator(@NotNull final ByteBuffer from) {
         final Iterator<Map.Entry<ByteBuffer, Value>> iterator = map.tailMap(from).entrySet().iterator();
         return Iterators.transform(iterator, element -> {
             assert element != null;
@@ -33,8 +33,8 @@ public class MemoryTable implements Table {
 
     @Override
     public void upsert(
-            @NotNull ByteBuffer key,
-            @NotNull ByteBuffer value) {
+            @NotNull final ByteBuffer key,
+            @NotNull final ByteBuffer value) {
         if (map.containsKey(key)) {
             final Value oldValue = map.get(key);
             if (oldValue.getData() != null) {
@@ -51,12 +51,12 @@ public class MemoryTable implements Table {
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) {
+    public void remove(@NotNull final ByteBuffer key) {
         final Value value = map.get(key);
-        if (value != null && value.getData() != null) {
-            size -= value.getData().remaining();
-        } else {
+        if (value == null || value.getData() == null) {
             size += key.remaining();
+        } else {
+            size -= value.getData().remaining();
         }
         map.put(key, Value.tombstone());
     }
@@ -82,7 +82,7 @@ public class MemoryTable implements Table {
         final List<Integer> positions = new ArrayList<>(map.size());
         final MappedByteBuffer buf;
 
-        try (final FileChannel fc = FileChannel.open(tmp.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+        try (FileChannel fc = FileChannel.open(tmp.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             buf = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize);
         }
 
