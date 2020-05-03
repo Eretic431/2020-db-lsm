@@ -8,7 +8,6 @@ import ru.mail.polis.Record;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,7 +43,7 @@ public class DAO implements ru.mail.polis.DAO {
         this.memTable = new MemoryTable();
         this.ssTables = new TreeMap<>(Comparator.reverseOrder());
 
-        try (final Stream<Path> walker = Files.walk(storage.toPath(), 1)) {
+        try (Stream<Path> walker = Files.walk(storage.toPath(), 1)) {
             final List<File> files = walker.filter(path -> {
                 final String fileName = path.getFileName().toString();
                 return fileName.endsWith(SSTable.DAT) && !fileName.matches("[A-z]+" + SSTable.DAT);
