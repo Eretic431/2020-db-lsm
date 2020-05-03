@@ -35,6 +35,10 @@ public class DAO implements ru.mail.polis.DAO {
         this.ssTables = new TreeMap<>(Comparator.reverseOrder());
         for (final File file : Objects.requireNonNull(this.storage.listFiles())) {
             if (file.isFile() && file.getName().endsWith(".dat")) {
+                if (file.getName().matches("[A-z]+.dat")) {
+                    continue;
+                }
+
                 final SSTable sst = new SSTable(file);
                 ssTables.put(sst.getGeneration(), sst);
 
@@ -75,20 +79,27 @@ public class DAO implements ru.mail.polis.DAO {
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         memTable.upsert(key, value);
         if (memTable.getSize() > flushThreshold) {
-            final File sstFile = memTable.flush(storage, generation);
-            ssTables.put(generation, new SSTable(sstFile));
-            memTable = new MemoryTable();
-            generation++;
+            flush();
         }
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer key) {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         memTable.remove(key);
+        if (memTable.getSize() > flushThreshold) {
+            flush();
+        }
     }
 
     @Override
     public void close() throws IOException {
         memTable.flush(storage, generation);
+    }
+
+    private void flush() throws IOException {
+        final File sstFile = memTable.flush(storage, generation);
+        ssTables.put(generation, new SSTable(sstFile));
+        memTable = new MemoryTable();
+        generation++;
     }
 }

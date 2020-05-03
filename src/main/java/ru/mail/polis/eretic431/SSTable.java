@@ -13,15 +13,18 @@ import java.util.Iterator;
 import java.util.List;
 
 final class SSTable implements Table {
+    public static final String DAT = ".dat";
+    public static final String TMP = ".tmp";
+
     final File file;
     private final int generation;
     private final List<Long> keys;
     private final MappedByteBuffer memMap;
 
-    public SSTable(File file) throws IOException {
+    public SSTable(@NotNull final File file) throws IOException {
         this.file = file;
         final String name = file.getName();
-        generation = Integer.parseInt(name.substring(0, name.length() - 4));
+        generation = Integer.parseInt(name.substring(0, name.length() - DAT.length()));
 
         try (final FileChannel fc = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
             memMap = fc.map(FileChannel.MapMode.READ_ONLY, 0, file.length());
@@ -93,14 +96,14 @@ final class SSTable implements Table {
     private Row getRow(long position) {
         final ByteBuffer key = getKey(position);
         memMap.clear();
-        memMap.position((int) position + key.limit() + Long.BYTES);
+        memMap.position((int) position + key.remaining() + Long.BYTES);
         final long timestamp = memMap.getLong();
         final long valueLength = memMap.getLong();
         if (valueLength < 0) {
-            return Row.of(key, new Value(timestamp, null));
+            return Row.of(key, Value.tombstone(timestamp));
         }
         memMap.limit((int) (memMap.position() + valueLength));
 
-        return Row.of(key, new Value(timestamp, memMap.slice()));
+        return Row.of(key, Value.of(timestamp, memMap.slice()));
     }
 }

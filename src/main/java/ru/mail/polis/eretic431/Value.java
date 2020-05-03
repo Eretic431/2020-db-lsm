@@ -10,15 +10,33 @@ final class Value implements Comparable<Value> {
     @Nullable
     private final ByteBuffer data;
 
-    Value(@Nullable ByteBuffer data) {
-        this.timestamp = System.currentTimeMillis();
+    private Value(@Nullable ByteBuffer data) {
+        this(System.currentTimeMillis(), data);
+    }
+
+    private Value(long timestamp, @Nullable ByteBuffer data) {
+        this.timestamp = timestamp;
         this.data = data;
     }
 
-    Value(long timestamp,
-          @Nullable ByteBuffer data) {
-        this.timestamp = timestamp;
-        this.data = data;
+    @NotNull
+    public static Value of(@NotNull ByteBuffer data) {
+        return new Value(data);
+    }
+
+    @NotNull
+    public static Value of(final long timestamp, @NotNull ByteBuffer data) {
+        return new Value(timestamp, data);
+    }
+
+    @NotNull
+    public static Value tombstone() {
+        return new Value(null);
+    }
+
+    @NotNull
+    public static Value tombstone(final long timestamp) {
+        return new Value(timestamp, null);
     }
 
     public boolean isTombstone() {

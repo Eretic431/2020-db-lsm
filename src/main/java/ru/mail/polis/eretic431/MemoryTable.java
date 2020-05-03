@@ -45,19 +45,20 @@ public class MemoryTable implements Table {
         }
         size += value.limit();
 
-        map.put(key, new Value(value));
+        map.put(key, Value.of(value));
         key.clear();
         value.clear();
     }
 
     @Override
     public void remove(@NotNull ByteBuffer key) {
-        if (map.containsKey(key)) {
-            size -= map.get(key).getData().limit();
+        final Value value = map.get(key);
+        if (value != null && value.getData() != null) {
+            size -= value.getData().remaining();
         } else {
-            size += key.limit();
+            size += key.remaining();
         }
-        map.put(key, new Value(null));
+        map.put(key, Value.tombstone());
     }
 
     public File flush(@NotNull final File storage, final int generation) throws IOException {
@@ -65,8 +66,8 @@ public class MemoryTable implements Table {
             return null;
         }
 
-        final File sstFile = new File(storage, generation + ".dat");
-        final File tmp = new File(storage, generation + ".tmp");
+        final File sstFile = new File(storage, generation + SSTable.DAT);
+        final File tmp = new File(storage, generation + SSTable.TMP);
         tmp.createNewFile();
 
         final long fileSize = getSize() + map.size() * Long.BYTES * 4 + Long.BYTES;
