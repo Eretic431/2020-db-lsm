@@ -46,7 +46,8 @@ public class DAO implements ru.mail.polis.DAO {
         try (Stream<Path> walker = Files.walk(storage.toPath(), 1)) {
             final List<File> files = walker.filter(path -> {
                 final String fileName = path.getFileName().toString();
-                return fileName.endsWith(SSTable.DAT) && !fileName.matches("[A-z]+" + SSTable.DAT);
+                return fileName.endsWith(SSTable.DAT) &&
+                        fileName.substring(0, fileName.length() - SSTable.DAT.length()).matches("^[0-9]+$");
             }).map(Path::toFile).collect(Collectors.toList());
 
             for (final File file : files) {
