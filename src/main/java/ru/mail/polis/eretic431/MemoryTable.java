@@ -55,7 +55,7 @@ public class MemoryTable implements Table {
         return map.entrySet();
     }
 
-    private void resize(@NotNull ByteBuffer key, @Nullable final Value value) {
+    private void resize(@NotNull final ByteBuffer key, @Nullable final Value value) {
         if (value == null || value.getData() == null) {
             size += key.remaining();
         } else {

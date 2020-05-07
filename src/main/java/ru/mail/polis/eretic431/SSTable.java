@@ -125,13 +125,13 @@ final class SSTable implements Table {
 
     @Override
     public void upsert(
-            @NotNull ByteBuffer key,
-            @NotNull ByteBuffer value) {
+            @NotNull final ByteBuffer key,
+            @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException("Immutable object. Method is not supported!");
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) {
+    public void remove(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException("Immutable object. Method is not supported!");
     }
 
