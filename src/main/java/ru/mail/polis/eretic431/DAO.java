@@ -29,7 +29,7 @@ public class DAO implements ru.mail.polis.DAO {
     /**
      * Creates persistent lsm key-value database instance.
      *
-     * @param storage where files flushed to
+     * @param storage        where files flushed to
      * @param flushThreshold is a threshold after which memory table flushes into {@param storage}
      * @throws IOException when {@link SSTable} creating goes wrong
      */
@@ -105,12 +105,11 @@ public class DAO implements ru.mail.polis.DAO {
 
     @Override
     public void close() throws IOException {
-        memTable.flush(storage, generation);
+        SSTable.flush(memTable, storage, generation);
     }
 
     private void flush() throws IOException {
-        final File sstFile = memTable.flush(storage, generation);
-        ssTables.put(generation, new SSTable(sstFile));
+        ssTables.put(generation, SSTable.flush(memTable, storage, generation));
         memTable = new MemoryTable();
         generation++;
     }

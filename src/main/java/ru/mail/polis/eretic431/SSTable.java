@@ -7,19 +7,88 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 final class SSTable implements Table {
     public static final String DAT = ".dat";
     public static final String TMP = ".tmp";
 
     final File file;
-    private final int generation;
-    private final List<Long> keys;
     private final MappedByteBuffer memMap;
+    private final int generation;
+    private final long indexBytes;
+    private final long quantity;
+
+    /**
+     * Flushes memory table.
+     *
+     * @param memTable   is a flushing {@link MemoryTable}
+     * @param storage    where file flushed to
+     * @param generation of memory table
+     * @return Flushed file
+     * @throws IOException when {@link FileChannel} opening goes wrong
+     */
+    public static SSTable flush(
+            @NotNull final MemoryTable memTable,
+            @NotNull final File storage,
+            final int generation) throws IOException {
+        if (memTable.isEmpty()) {
+            return null;
+        }
+
+        final File sstFile = new File(storage, generation + SSTable.DAT);
+        final File tmp = new File(storage, generation + SSTable.TMP);
+        tmp.createNewFile();
+
+        final long fileSize = memTable.getSize() + memTable.getQuantity() * Long.BYTES * 4 + Long.BYTES;
+        final List<Integer> positions = new ArrayList<>(memTable.getQuantity());
+        final MappedByteBuffer buf;
+
+        try (FileChannel fc = FileChannel.open(tmp.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+            buf = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize);
+        }
+
+        buf.clear();
+        for (final Map.Entry<ByteBuffer, Value> entrySet : memTable.getEntrySet()) {
+            final ByteBuffer key = entrySet.getKey();
+            final Value value = entrySet.getValue();
+            positions.add(buf.position());
+
+            buf.putLong(key.remaining());
+            buf.put(key);
+
+            buf.putLong(value.getTimestamp());
+            if (value.isTombstone()) {
+                buf.putLong(-1);
+            } else {
+                final ByteBuffer data = value.getData();
+                assert data != null;
+                buf.putLong(data.remaining());
+                buf.put(data);
+            }
+            key.clear();
+            if (value.getData() != null) {
+                value.getData().clear();
+            }
+        }
+
+        for (final int position : positions) {
+            buf.putLong(position);
+        }
+
+        buf.putLong(memTable.getQuantity());
+        Files.move(tmp.toPath(), sstFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+        sstFile.setReadOnly();
+
+        return new SSTable(sstFile);
+    }
 
     public SSTable(@NotNull final File file) throws IOException {
         this.file = file;
@@ -30,13 +99,8 @@ final class SSTable implements Table {
             memMap = fc.map(FileChannel.MapMode.READ_ONLY, 0, file.length());
         }
 
-        final int rowsAmount = (int) memMap.getLong(memMap.limit() - Long.BYTES);
-        keys = new ArrayList<>(rowsAmount);
-
-        memMap.position(memMap.limit() - Long.BYTES * (rowsAmount + 1));
-        for (int i = 0; i < rowsAmount; i++) {
-            keys.add(memMap.getLong());
-        }
+        quantity = (int) memMap.getLong(memMap.limit() - Long.BYTES);
+        indexBytes = memMap.limit() - Long.BYTES * (quantity + 1);
     }
 
     @Override
@@ -46,7 +110,7 @@ final class SSTable implements Table {
 
             @Override
             public boolean hasNext() {
-                return position < keys.size();
+                return position < quantity;
             }
 
             @Override
@@ -54,9 +118,21 @@ final class SSTable implements Table {
                 if (!hasNext()) {
                     throw new IllegalStateException("Iterator is empty!");
                 }
-                return getRow(keys.get(position++));
+                return getRow(position++);
             }
         };
+    }
+
+    @Override
+    public void upsert(
+            @NotNull ByteBuffer key,
+            @NotNull ByteBuffer value) {
+        throw new UnsupportedOperationException("Immutable object. Method is not supported!");
+    }
+
+    @Override
+    public void remove(@NotNull ByteBuffer key) {
+        throw new UnsupportedOperationException("Immutable object. Method is not supported!");
     }
 
     public int getGeneration() {
@@ -65,11 +141,11 @@ final class SSTable implements Table {
 
     private int binarySearch(@NotNull final ByteBuffer from) {
         int low = 0;
-        int high = keys.size() - 1;
+        int high = (int) (quantity - 1);
 
         while (low <= high) {
             final int pivot = (low + high) >>> 1;
-            final ByteBuffer pivotVal = getKey(keys.get(pivot));
+            final ByteBuffer pivotVal = getKey(pivot);
             if (pivotVal.compareTo(from) < 0) {
                 low = pivot + 1;
             } else {
@@ -84,19 +160,21 @@ final class SSTable implements Table {
         return low;
     }
 
-    private ByteBuffer getKey(final long position) {
+    private ByteBuffer getKey(final long index) {
         memMap.clear();
-        memMap.position((int) position);
+        memMap.position((int) (indexBytes + index * Long.BYTES));
+        memMap.position((int) memMap.getLong());
         final long keyLength = memMap.getLong();
         memMap.limit((int) (memMap.position() + keyLength));
 
         return memMap.slice();
     }
 
-    private Row getRow(final long position) {
-        final ByteBuffer key = getKey(position);
+    private Row getRow(final long index) {
+        final ByteBuffer key = getKey(index);
         memMap.clear();
-        memMap.position((int) position + key.remaining() + Long.BYTES);
+        memMap.position((int) (indexBytes + index * Long.BYTES));
+        memMap.position((int) memMap.getLong() + Long.BYTES + key.remaining());
         final long timestamp = memMap.getLong();
         final long valueLength = memMap.getLong();
         if (valueLength < 0) {
