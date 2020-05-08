@@ -165,7 +165,7 @@ final class SSTable implements Table {
         final long keyLength = memMap.getLong();
         memMap.limit((int) (memMap.position() + keyLength));
 
-        return memMap.slice().asReadOnlyBuffer();
+        return memMap.slice();
     }
 
     private Row getRow(final long index) {
@@ -180,6 +180,6 @@ final class SSTable implements Table {
         }
         memMap.limit((int) (memMap.position() + valueLength));
 
-        return Row.of(key, Value.of(timestamp, memMap.slice().asReadOnlyBuffer()));
+        return Row.of(key, Value.of(timestamp, memMap.slice()));
     }
 }
