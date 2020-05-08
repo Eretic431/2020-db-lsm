@@ -13,8 +13,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
 
 final class SSTable implements Table {
     public static final String DAT = ".dat";
