@@ -30,7 +30,7 @@ public class MemoryTable implements Table {
             @NotNull final ByteBuffer value) {
         final Value oldValue = map.put(key, Value.of(value));
         resize(key, oldValue);
-        size += value.limit();
+        size += value.remaining();
     }
 
     @Override
@@ -49,10 +49,6 @@ public class MemoryTable implements Table {
 
     public int getQuantity() {
         return map.size();
-    }
-
-    public Set<Map.Entry<ByteBuffer, Value>> getEntrySet() {
-        return map.entrySet();
     }
 
     private void resize(@NotNull final ByteBuffer key, @Nullable final Value value) {

@@ -3,8 +3,11 @@ package ru.mail.polis.eretic431;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 
 public class Row {
+    public static final Comparator<Row> COMPARATOR = Comparator.comparing(Row::getKey).thenComparing(Row::getValue);
+
     private final ByteBuffer key;
     private final Value value;
 

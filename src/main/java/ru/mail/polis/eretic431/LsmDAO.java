@@ -2,6 +2,7 @@ package ru.mail.polis.eretic431;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.DAO;
 import ru.mail.polis.Iters;
 import ru.mail.polis.Record;
 
@@ -19,7 +20,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DAO implements ru.mail.polis.DAO {
+public class LsmDAO implements DAO {
     private final SortedMap<Integer, Table> ssTables;
     private MemoryTable memTable;
     private final File storage;
@@ -33,7 +34,7 @@ public class DAO implements ru.mail.polis.DAO {
      * @param flushThreshold is a threshold after which memory table flushes into {@param storage}
      * @throws IOException when {@link SSTable} creating goes wrong
      */
-    public DAO(final File storage, final long flushThreshold) throws IOException {
+    public LsmDAO(final File storage, final long flushThreshold) throws IOException {
         if (storage == null) {
             throw new IllegalArgumentException("Storage must not be null");
         }
@@ -74,7 +75,7 @@ public class DAO implements ru.mail.polis.DAO {
             iterators.add(sst.iterator(from));
         }
         final Iterator<Row> merged = Iterators.mergeSorted(
-                iterators, Comparator.comparing(Row::getKey).thenComparing(Row::getValue));
+                iterators, Row.COMPARATOR);
         final Iterator<Row> collapsed = Iters.collapseEquals(merged, Row::getKey);
         final Iterator<Row> filtered = Iterators.filter(collapsed, e -> {
             assert e != null;

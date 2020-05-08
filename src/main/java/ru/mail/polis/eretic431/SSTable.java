@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 final class SSTable implements Table {
     public static final String DAT = ".dat";
@@ -23,7 +24,7 @@ final class SSTable implements Table {
     private final MappedByteBuffer memMap;
     private final int generation;
     private final long indexBytes;
-    private final long quantity;
+    private final int quantity;
 
     /**
      * Flushes memory table.
@@ -54,10 +55,9 @@ final class SSTable implements Table {
             buf = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize);
         }
 
-        buf.clear();
-        for (final Map.Entry<ByteBuffer, Value> entrySet : memTable.getEntrySet()) {
-            final ByteBuffer key = entrySet.getKey();
-            final Value value = entrySet.getValue();
+        memTable.iterator(ByteBuffer.allocate(0)).forEachRemaining(row -> {
+            final ByteBuffer key = row.getKey();
+            final Value value = row.getValue();
             positions.add(buf.position());
 
             buf.putLong(key.remaining());
@@ -76,7 +76,7 @@ final class SSTable implements Table {
             if (value.getData() != null) {
                 value.getData().clear();
             }
-        }
+        });
 
         for (final int position : positions) {
             buf.putLong(position);
@@ -100,7 +100,7 @@ final class SSTable implements Table {
         }
 
         quantity = (int) memMap.getLong(memMap.limit() - Long.BYTES);
-        indexBytes = memMap.limit() - Long.BYTES * (quantity + 1);
+        indexBytes = memMap.remaining() - (long) Long.BYTES * (quantity + 1);
     }
 
     @Override
@@ -127,12 +127,12 @@ final class SSTable implements Table {
     public void upsert(
             @NotNull final ByteBuffer key,
             @NotNull final ByteBuffer value) {
-        throw new UnsupportedOperationException("Immutable object. Method is not supported!");
+        throw new UnsupportedOperationException("Method is not supported!");
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) {
-        throw new UnsupportedOperationException("Immutable object. Method is not supported!");
+        throw new UnsupportedOperationException("Method is not supported!");
     }
 
     public int getGeneration() {
@@ -141,7 +141,7 @@ final class SSTable implements Table {
 
     private int binarySearch(@NotNull final ByteBuffer from) {
         int low = 0;
-        int high = (int) (quantity - 1);
+        int high = quantity - 1;
 
         while (low <= high) {
             final int pivot = (low + high) >>> 1;
@@ -167,7 +167,7 @@ final class SSTable implements Table {
         final long keyLength = memMap.getLong();
         memMap.limit((int) (memMap.position() + keyLength));
 
-        return memMap.slice();
+        return memMap.slice().asReadOnlyBuffer();
     }
 
     private Row getRow(final long index) {
@@ -182,6 +182,6 @@ final class SSTable implements Table {
         }
         memMap.limit((int) (memMap.position() + valueLength));
 
-        return Row.of(key, Value.of(timestamp, memMap.slice()));
+        return Row.of(key, Value.of(timestamp, memMap.slice().asReadOnlyBuffer()));
     }
 }
