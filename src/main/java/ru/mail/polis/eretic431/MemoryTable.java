@@ -32,6 +32,12 @@ public class MemoryTable implements Table {
         size += value.remaining();
     }
 
+    /**
+     * Upserts value with determined timestamp.
+     *
+     * @param key   is a key of row
+     * @param value is a value of row
+     */
     public void upsert(
             @NotNull final ByteBuffer key,
             @NotNull final Value value) {

@@ -1,7 +1,6 @@
 package ru.mail.polis.eretic431;
 
 import com.google.common.collect.Iterators;
-import com.google.common.collect.MapMaker;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.DAO;
 import ru.mail.polis.Iters;
@@ -12,7 +11,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -112,10 +117,10 @@ public class LsmDAO implements DAO {
         final Iterator<Row> collapsed = Iters.collapseEquals(merged, Row::getKey);
         MemoryTable tmpMemTable = new MemoryTable();
 
-        int generation = 0;
+        int tmpGeneration = 0;
         final SortedMap<Integer, SSTable> tmpSSTables = new TreeMap<>(Comparator.reverseOrder());
 
-        for (Map.Entry<Integer, SSTable> table : ssTables.entrySet()) {
+        for (final Map.Entry<Integer, SSTable> table : ssTables.entrySet()) {
             table.getValue().file.delete();
         }
 
@@ -123,12 +128,12 @@ public class LsmDAO implements DAO {
             final Row row = collapsed.next();
             tmpMemTable.upsert(row.getKey(), row.getValue());
             if (tmpMemTable.getSize() > flushThreshold) {
-                tmpSSTables.put(generation, SSTable.flush(tmpMemTable, storage, generation));
+                tmpSSTables.put(tmpGeneration, SSTable.flush(tmpMemTable, storage, tmpGeneration));
                 tmpMemTable = new MemoryTable();
-                generation++;
+                tmpGeneration++;
             }
         }
-        this.generation = generation;
+        generation = tmpGeneration;
 
         ssTables = tmpSSTables;
     }
