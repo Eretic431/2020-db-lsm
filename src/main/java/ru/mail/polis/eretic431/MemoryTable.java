@@ -32,6 +32,17 @@ public class MemoryTable implements Table {
         size += value.remaining();
     }
 
+    public void upsert(
+            @NotNull final ByteBuffer key,
+            @NotNull final Value value) {
+        final Value oldValue = map.put(key, value);
+        resize(key, oldValue);
+        if (value.isTombstone()) {
+            return;
+        }
+        size += value.getData().remaining();
+    }
+
     @Override
     public void remove(@NotNull final ByteBuffer key) {
         final Value value = map.put(key, Value.tombstone());

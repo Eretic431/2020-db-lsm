@@ -1,6 +1,7 @@
 package ru.mail.polis.eretic431;
 
 import com.google.common.collect.Iterators;
+import com.google.common.collect.MapMaker;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.DAO;
 import ru.mail.polis.Iters;
@@ -11,17 +12,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LsmDAO implements DAO {
-    private final SortedMap<Integer, Table> ssTables;
+    private SortedMap<Integer, SSTable> ssTables;
     private MemoryTable memTable;
     private final File storage;
     private int generation;
@@ -103,6 +99,38 @@ public class LsmDAO implements DAO {
         if (memTable.getSize() > flushThreshold) {
             flush();
         }
+    }
+
+    @Override
+    public void compact() throws IOException {
+        final List<Iterator<Row>> iterators = new ArrayList<>(ssTables.size());
+        for (final Table sst : ssTables.values()) {
+            iterators.add(sst.iterator(ByteBuffer.allocate(0)));
+        }
+        final Iterator<Row> merged = Iterators.mergeSorted(
+                iterators, Row.COMPARATOR);
+        final Iterator<Row> collapsed = Iters.collapseEquals(merged, Row::getKey);
+        MemoryTable tmpMemTable = new MemoryTable();
+
+        int generation = 0;
+        final SortedMap<Integer, SSTable> tmpSSTables = new TreeMap<>(Comparator.reverseOrder());
+
+        for (Map.Entry<Integer, SSTable> table : ssTables.entrySet()) {
+            table.getValue().file.delete();
+        }
+
+        while (collapsed.hasNext()) {
+            final Row row = collapsed.next();
+            tmpMemTable.upsert(row.getKey(), row.getValue());
+            if (tmpMemTable.getSize() > flushThreshold) {
+                tmpSSTables.put(generation, SSTable.flush(tmpMemTable, storage, generation));
+                tmpMemTable = new MemoryTable();
+                generation++;
+            }
+        }
+        this.generation = generation;
+
+        ssTables = tmpSSTables;
     }
 
     @Override
