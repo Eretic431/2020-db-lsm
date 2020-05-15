@@ -37,8 +37,7 @@ final class SSTable implements Table {
     public static SSTable flush(
             @NotNull final Iterator<Row> rows,
             @NotNull final File storage,
-            final int generation,
-            final long flushThreshold) throws IOException {
+            final int generation) throws IOException {
         if (!rows.hasNext()) {
             return null;
         }
@@ -50,15 +49,13 @@ final class SSTable implements Table {
         final List<Long> positions = new ArrayList<>();
 
         long count = 0;
-        long size = 0;
         try (FileChannel fc = FileChannel.open(tmp.toPath(), StandardOpenOption.WRITE)) {
-            while (rows.hasNext() && size <= flushThreshold) {
+            while (rows.hasNext()) {
                 final Row row = rows.next();
                 final ByteBuffer key = row.getKey();
                 final Value value = row.getValue();
                 positions.add(fc.position());
 
-                size += key.remaining();
                 fc.write(ByteBuffer.wrap(Longs.toByteArray(key.remaining())));
                 fc.write(key);
 
@@ -68,7 +65,6 @@ final class SSTable implements Table {
                 } else {
                     final ByteBuffer data = value.getData();
                     assert data != null;
-                    size += data.remaining();
                     fc.write(ByteBuffer.wrap(Longs.toByteArray(data.remaining())));
                     fc.write(data);
                 }

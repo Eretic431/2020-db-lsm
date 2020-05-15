@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LsmDAO implements DAO {
-    private SortedMap<Integer, SSTable> ssTables;
+    private final SortedMap<Integer, SSTable> ssTables;
     private MemoryTable memTable;
     private final File storage;
     private int generation;
@@ -115,29 +115,22 @@ public class LsmDAO implements DAO {
                 iterators, Row.COMPARATOR);
         final Iterator<Row> collapsed = Iters.collapseEquals(merged, Row::getKey);
 
-        int tmpGeneration = 0;
-        final SortedMap<Integer, SSTable> tmpSSTables = new TreeMap<>(Comparator.reverseOrder());
-        SSTable tmpSST = SSTable.flush(collapsed, storage, tmpGeneration, flushThreshold);
-        while (tmpSST != null) {
-            tmpSSTables.put(tmpGeneration, tmpSST);
-            tmpGeneration++;
-            tmpSST = SSTable.flush(collapsed, storage, tmpGeneration, flushThreshold);
+        ssTables.put(generation, SSTable.flush(collapsed, storage, generation));
+        for (int i = 0; i < generation; i++) {
+            ssTables.get(i).file.delete();
         }
-        for (; tmpGeneration < ssTables.size(); tmpGeneration++) {
-            ssTables.get(tmpGeneration).file.delete();
-        }
-        ssTables = tmpSSTables;
+        generation++;
     }
 
     @Override
     public void close() throws IOException {
-        SSTable.flush(memTable.iterator(ByteBuffer.allocate(0)), storage, generation, flushThreshold);
+        SSTable.flush(memTable.iterator(ByteBuffer.allocate(0)), storage, generation);
     }
 
     private void flush() throws IOException {
         ssTables.put(
                 generation,
-                SSTable.flush(memTable.iterator(ByteBuffer.allocate(0)), storage, generation, flushThreshold));
+                SSTable.flush(memTable.iterator(ByteBuffer.allocate(0)), storage, generation));
         memTable = new MemoryTable();
         generation++;
     }
