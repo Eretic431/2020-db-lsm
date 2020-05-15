@@ -59,14 +59,6 @@ public class MemoryTable implements Table {
         return size;
     }
 
-    public boolean isEmpty() {
-        return map.isEmpty();
-    }
-
-    public int getQuantity() {
-        return map.size();
-    }
-
     private void resize(@NotNull final ByteBuffer key, @Nullable final Value value) {
         if (value == null || value.getData() == null) {
             size += key.remaining();

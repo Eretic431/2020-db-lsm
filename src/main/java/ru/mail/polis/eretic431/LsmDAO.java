@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -115,36 +114,30 @@ public class LsmDAO implements DAO {
         final Iterator<Row> merged = Iterators.mergeSorted(
                 iterators, Row.COMPARATOR);
         final Iterator<Row> collapsed = Iters.collapseEquals(merged, Row::getKey);
-        MemoryTable tmpMemTable = new MemoryTable();
 
         int tmpGeneration = 0;
         final SortedMap<Integer, SSTable> tmpSSTables = new TreeMap<>(Comparator.reverseOrder());
-
-        for (final Map.Entry<Integer, SSTable> table : ssTables.entrySet()) {
-            table.getValue().file.delete();
+        SSTable tmpSST = SSTable.flush(collapsed, storage, tmpGeneration, flushThreshold);
+        while (tmpSST != null) {
+            tmpSSTables.put(tmpGeneration, tmpSST);
+            tmpGeneration++;
+            tmpSST = SSTable.flush(collapsed, storage, tmpGeneration, flushThreshold);
         }
-
-        while (collapsed.hasNext()) {
-            final Row row = collapsed.next();
-            tmpMemTable.upsert(row.getKey(), row.getValue());
-            if (tmpMemTable.getSize() > flushThreshold) {
-                tmpSSTables.put(tmpGeneration, SSTable.flush(tmpMemTable, storage, tmpGeneration));
-                tmpMemTable = new MemoryTable();
-                tmpGeneration++;
-            }
+        for (; tmpGeneration < ssTables.size(); tmpGeneration++) {
+            ssTables.get(tmpGeneration).file.delete();
         }
-        generation = tmpGeneration;
-
         ssTables = tmpSSTables;
     }
 
     @Override
     public void close() throws IOException {
-        SSTable.flush(memTable, storage, generation);
+        SSTable.flush(memTable.iterator(ByteBuffer.allocate(0)), storage, generation, flushThreshold);
     }
 
     private void flush() throws IOException {
-        ssTables.put(generation, SSTable.flush(memTable, storage, generation));
+        ssTables.put(
+                generation,
+                SSTable.flush(memTable.iterator(ByteBuffer.allocate(0)), storage, generation, flushThreshold));
         memTable = new MemoryTable();
         generation++;
     }

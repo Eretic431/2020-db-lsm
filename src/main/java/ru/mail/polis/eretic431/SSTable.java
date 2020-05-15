@@ -1,5 +1,6 @@
 package ru.mail.polis.eretic431;
 
+import com.google.common.primitives.Longs;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -27,17 +28,18 @@ final class SSTable implements Table {
     /**
      * Flushes memory table.
      *
-     * @param memTable   is a flushing {@link MemoryTable}
+     * @param rows       is a Iterator over {@link Row}
      * @param storage    where file flushed to
      * @param generation of memory table
      * @return Flushed file
      * @throws IOException when {@link FileChannel} opening goes wrong
      */
     public static SSTable flush(
-            @NotNull final MemoryTable memTable,
+            @NotNull final Iterator<Row> rows,
             @NotNull final File storage,
-            final int generation) throws IOException {
-        if (memTable.isEmpty()) {
+            final int generation,
+            final long flushThreshold) throws IOException {
+        if (!rows.hasNext()) {
             return null;
         }
 
@@ -45,43 +47,46 @@ final class SSTable implements Table {
         final File tmp = new File(storage, generation + SSTable.TMP);
         tmp.createNewFile();
 
-        final long fileSize = memTable.getSize() + memTable.getQuantity() * Long.BYTES * 4 + Long.BYTES;
-        final List<Integer> positions = new ArrayList<>(memTable.getQuantity());
-        final MappedByteBuffer buf;
+        final List<Long> positions = new ArrayList<>();
 
-        try (FileChannel fc = FileChannel.open(tmp.toPath(), StandardOpenOption.READ, StandardOpenOption.WRITE)) {
-            buf = fc.map(FileChannel.MapMode.READ_WRITE, 0, fileSize);
-        }
+        long count = 0;
+        long size = 0;
+        try (FileChannel fc = FileChannel.open(tmp.toPath(), StandardOpenOption.WRITE)) {
+            while (rows.hasNext() && size <= flushThreshold) {
+                final Row row = rows.next();
+                final ByteBuffer key = row.getKey();
+                final Value value = row.getValue();
+                positions.add(fc.position());
 
-        memTable.iterator(ByteBuffer.allocate(0)).forEachRemaining(row -> {
-            final ByteBuffer key = row.getKey();
-            final Value value = row.getValue();
-            positions.add(buf.position());
+                size += key.remaining();
+                fc.write(ByteBuffer.wrap(Longs.toByteArray(key.remaining())));
+                fc.write(key);
 
-            buf.putLong(key.remaining());
-            buf.put(key);
+                fc.write(ByteBuffer.wrap(Longs.toByteArray(value.getTimestamp())));
+                if (value.isTombstone()) {
+                    fc.write(ByteBuffer.wrap(Longs.toByteArray(-1)));
+                } else {
+                    final ByteBuffer data = value.getData();
+                    assert data != null;
+                    size += data.remaining();
+                    fc.write(ByteBuffer.wrap(Longs.toByteArray(data.remaining())));
+                    fc.write(data);
+                }
+                key.clear();
+                if (value.getData() != null) {
+                    value.getData().clear();
+                }
 
-            buf.putLong(value.getTimestamp());
-            if (value.isTombstone()) {
-                buf.putLong(-1);
-            } else {
-                final ByteBuffer data = value.getData();
-                assert data != null;
-                buf.putLong(data.remaining());
-                buf.put(data);
+                count++;
             }
-            key.clear();
-            if (value.getData() != null) {
-                value.getData().clear();
+
+            for (final long position : positions) {
+                fc.write(ByteBuffer.wrap(Longs.toByteArray(position)));
             }
-        });
 
-        for (final int position : positions) {
-            buf.putLong(position);
+            fc.write(ByteBuffer.wrap(Longs.toByteArray(count)));
+            Files.move(tmp.toPath(), sstFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
         }
-
-        buf.putLong(memTable.getQuantity());
-        Files.move(tmp.toPath(), sstFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
         sstFile.setReadOnly();
 
