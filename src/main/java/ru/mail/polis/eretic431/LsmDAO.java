@@ -117,7 +117,7 @@ public class LsmDAO implements DAO {
 
         ssTables.put(generation, SSTable.flush(collapsed, storage, generation));
         for (int i = 0; i < generation; i++) {
-            ssTables.get(i).file.delete();
+            ssTables.remove(i).file.delete();
         }
         generation++;
     }
