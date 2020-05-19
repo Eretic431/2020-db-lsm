@@ -116,7 +116,7 @@ public class LsmDAO implements DAO {
         final Iterator<Row> collapsed = Iters.collapseEquals(merged, Row::getKey);
 
         ssTables.put(generation, SSTable.flush(collapsed, storage, generation));
-        for (int i = 0; i < generation; i++) {
+        for (int i = ssTables.lastKey(); i < generation; i++) {
             ssTables.remove(i).file.delete();
         }
         generation++;
